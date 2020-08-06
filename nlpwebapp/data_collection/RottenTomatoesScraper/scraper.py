@@ -1,46 +1,28 @@
 import bs4
-import requests
 from bs4 import BeautifulSoup
 
 
 class RottenTomatoesScraper:
-    def __init__(self, source: str):
-        """Scrape movie reviews from Rotten Tomatoes.
+    def __init__(self, content: bytes):
+        """Scrape movie review text and ratings from content.
 
         Args:
-            source (str): URL of movie's page on RT.
+            content (bytes): [description]
         """
-        src_content = self.fetch_src_content(source)
-        soup = BeautifulSoup(src_content, "lxml")
+        soup = BeautifulSoup(content, "lxml")
         self.review_scores: list = self.extract_review_scores(soup)
         self.review_text: list = self.extract_review_text(soup)
         self.title: str = self.extract_movie_title(soup)
+        self.titles: list = [self.title for review in self.review_scores]
 
     def to_dict(self):
         """Return Pandas-compatible dictionary of reviews.
         """
-        title = [self.title for review in self.review_scores]
         return {
-            "Title": title,
+            "Title": self.titles,
             "Review Text": self.review_text,
-            "Scores": self.review_scores,
+            "Score": self.review_scores,
         }
-
-    def fetch_src_content(self, source: str) -> bytes:
-        """Fetch page bytecontent from source URL.
-
-        Args:
-            source (str): source URL.
-        
-        Raises:
-            StatusError: Raises respective error for non-200 responses.
-
-        Returns:
-            bytes: bytecontent of page.
-        """
-        src = requests.get(source)
-        src.raise_for_status()
-        return src.content
 
     def extract_movie_title(self, soup: BeautifulSoup) -> str:
         """Extract movie title text from given soup.
@@ -56,7 +38,7 @@ class RottenTomatoesScraper:
         """
         title_dirty: str = soup.find("h2", class_="panel-heading").text
         if not title_dirty:
-            raise NotFoundError("movie title")
+            raise AttributeError("No movie title was found in the content.")
         # Fake Movie Title R̶e̶v̶i̶e̶w̶s̶
         title = title_dirty[:-8]
         return title
@@ -68,7 +50,7 @@ class RottenTomatoesScraper:
             soup (BeautifulSoup): Soup of source page.
 
         Raises:
-            NotFoundError: Raised if no review texts are found.
+            AttributeError: Raised if no review texts are found.
 
         Returns:
             list: List of text from reviews.
@@ -76,7 +58,7 @@ class RottenTomatoesScraper:
         reviews = soup.find_all("p", class_="audience-reviews__review")
 
         if not reviews:
-            raise NotFoundError("review text")
+            raise AttributeError("No review text was found in the content.")
 
         review_text = [review.text for review in reviews]
         return review_text
@@ -88,7 +70,7 @@ class RottenTomatoesScraper:
             soup (BeautifulSoup): Soup of source page.
 
         Raises:
-            NotFoundError: Raised if no star-display HTML tags are found.
+            AttributeError: Raised if no star-display HTML tags are found.
 
         Returns:
             list: List of scores
@@ -97,7 +79,7 @@ class RottenTomatoesScraper:
         star_displays = soup.find_all(class_="star-display")
 
         if not star_displays:
-            raise NotFoundError("star-display tags")
+            raise AttributeError("No star-display tags were found in the content.")
 
         review_scores = [
             self.calculate_score(star_display) for star_display in star_displays
@@ -131,14 +113,3 @@ class RottenTomatoesScraper:
 
         score = full_star_count + (half_star_count * 0.5)
         return score
-
-
-class NotFoundError(Exception):
-    def __init__(self, missing: str = "reviews", *args, **kwargs):
-        """No {missing} was/were found in page.
-        """
-        self.missing = missing
-        super().__init__(*args, **kwargs)
-
-    def __str__(self):
-        return f"No {self.missing} was/were found in page."
