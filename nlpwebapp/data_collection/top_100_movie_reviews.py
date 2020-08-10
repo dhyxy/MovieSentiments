@@ -128,7 +128,12 @@ def generate_df(responses) -> pd.DataFrame:
     review_scores = []
     print("Parsing user reviews...")
     for response in responses:
-        movie_data = RottenTomatoesScraper(response.content)
+        try:
+            movie_data = RottenTomatoesScraper(response.content)
+        except AttributeError:
+            print(f"  No reviews found for url: {response.url}")
+            response.close()
+            continue
         titles.extend(movie_data.titles)
         review_text.extend(movie_data.review_text)
         review_scores.extend(movie_data.review_scores)
@@ -139,8 +144,8 @@ def generate_df(responses) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    movie_tags_2019 = get_top_100_movie_tags(year=2019)
-    urls = get_user_review_urls_from_tags(movie_tags_2019)
+    movie_tags = get_top_100_movie_tags(year=2017)
+    urls = get_user_review_urls_from_tags(movie_tags)
     responses = get_responses(urls)
     df: pd.DataFrame = generate_df(responses)
-    df.to_csv("movie_reviews.csv")
+    df.to_csv("movie_reviews2017.csv")
